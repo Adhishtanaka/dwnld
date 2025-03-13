@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import org.kordamp.ikonli.javafx.FontIcon?>
+
+
+<AnchorPane xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1"
+            styleClass="main-container" fx:controller="at.dwnld.controllers.MainController">
+
+    <BorderPane AnchorPane.topAnchor="0.0" AnchorPane.bottomAnchor="0.0"
+                AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0">
+        <!-- Center Section: Downloads Table -->
+        <center>
+            <VBox spacing="10">
+                <padding>
+                    <Insets top="5" bottom="10" left="15" right="15"/>
+                </padding>
+
+                <!-- Toolbar -->
+                <HBox spacing="5" alignment="CENTER_LEFT" styleClass="toolbar">
+                    <Button fx:id="btnAddDownload" styleClass="action-button" >
+                        <graphic>
+                            <FontIcon iconLiteral="fas-plus" iconSize="16" fill="white"/>
+                        </graphic>
+                    </Button>
+                    <Button fx:id="btnResume" styleClass="action-button" >
+                        <graphic>
+                            <FontIcon iconLiteral="fas-play" iconSize="16" fill="white"/>
+                        </graphic>
+                    </Button>
+                    <Button fx:id="btnPause" styleClass="action-button" >
+                        <graphic>
+                            <FontIcon iconLiteral="fas-pause" iconSize="16" fill="white"/>
+                        </graphic>
+                    </Button>
+                    <Button fx:id="btnDelete" styleClass="action-button" >
+                        <graphic>
+                            <FontIcon iconLiteral="fas-trash" iconSize="16" fill="white"/>
+                        </graphic>
+                    </Button>
+
+                    <Separator orientation="VERTICAL">
+                        <padding>
+                            <Insets left="5" right="5"/>
+                        </padding>
+                    </Separator>
+
+                    <Button fx:id="btnSettings" styleClass="action-button" >
+                        <graphic>
+                            <FontIcon iconLiteral="fas-cog" iconSize="16" fill="white"/>
+                        </graphic>
+                    </Button>
+
+                    <Region HBox.hgrow="ALWAYS"/>
+
+                    <TextField fx:id="searchField" promptText="Search downloads..." prefWidth="200">
+                    </TextField>
+                </HBox>
+
+                <!-- Downloads Table -->
+                <TableView fx:id="tableView" VBox.vgrow="ALWAYS" styleClass="downloads-table">
+                    <columns>
+                        <TableColumn text="Name" fx:id="columnName" prefWidth="100"/>
+                        <TableColumn text="Size" fx:id="columnSize" prefWidth="80"/>
+                        <TableColumn text="Added" fx:id="columnDate" prefWidth="80"/>
+                        <TableColumn text="Status" fx:id="columnStatus" prefWidth="80"/>
+                        <TableColumn text="Progress" fx:id="columnProgress" prefWidth="220"/>
+                    </columns>
+                    <placeholder>
+                        <Label text="Click the '+' button to add a new download."/>
+                    </placeholder>
+                </TableView>
+            </VBox>
+        </center>
+
+        <!-- Bottom Section: Status Bar -->
+        <bottom>
+            <HBox spacing="15" styleClass="status-bar">
+                <padding>
+                    <Insets top="5" bottom="5" left="15" right="15"/>
+                </padding>
+                <Label fx:id="lblTotalDownloads" text="Downloads: 0"/>
+                <Label fx:id="lblActiveDownloads" text="Active: 0"/>
+                <Label fx:id="lblTotalSpeed" text="Speed: 0 KB/s"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Label fx:id="lblConnectionStatus" text="Connected"/>
+            </HBox>
+        </bottom>
+    </BorderPane>
+</AnchorPane>
