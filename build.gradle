@@ -41,12 +41,9 @@ dependencies {
     implementation "com.squareup.okhttp3:okhttp:4.12.0"
     implementation 'org.kordamp.ikonli:ikonli-fontawesome5-pack:12.3.1'
     implementation 'commons-io:commons-io:2.18.0'
-    implementation ('org.jfxtras:jmetro:11.6.16') {
-        exclude group: 'org.jetbrains.kotlin'
-    }
-    implementation ('org.kordamp.ikonli:ikonli-javafx:12.3.1') {
-        exclude group: 'org.jetbrains.kotlin'
-    }
+
+    implementation 'org.jfxtras:jmetro:11.6.16'
+    implementation 'org.kordamp.ikonli:ikonli-javafx:12.3.1'
 
 }
 
