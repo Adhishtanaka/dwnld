@@ -41,7 +41,7 @@ public class MainController {
     @FXML
     private void initialize() {
         tableView.setItems(downloads);
-        tableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        tableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         columnName.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getName()));
         columnSize.setCellValueFactory(cellData -> new SimpleStringProperty(String.valueOf(FileUtils.byteCountToDisplaySize(cellData.getValue().getSize()))));
         columnDate.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getAdded().format(formatter)));
