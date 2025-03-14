@@ -15,10 +15,14 @@ import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 import jfxtras.styles.jmetro.JMetro;
 import jfxtras.styles.jmetro.Style;
-import java.io.File;
-import java.io.IOException;
+
+import java.io.*;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.apache.commons.io.FileUtils;
 
 public class MainController {
 
@@ -30,6 +34,8 @@ public class MainController {
     @FXML private TableColumn<FileModel, String> columnStatus;
     @FXML private TableColumn<FileModel, String> columnProgress;
 
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm a");
+
     private final ObservableList<FileModel> downloads = FXCollections.observableArrayList();
 
     @FXML
@@ -37,8 +43,8 @@ public class MainController {
         tableView.setItems(downloads);
         tableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         columnName.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getName()));
-        columnSize.setCellValueFactory(cellData -> new SimpleStringProperty(String.valueOf(cellData.getValue().getSize())));
-        columnDate.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getAdded().toString()));
+        columnSize.setCellValueFactory(cellData -> new SimpleStringProperty(String.valueOf(FileUtils.byteCountToDisplaySize(cellData.getValue().getSize()))));
+        columnDate.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getAdded().format(formatter)));
         columnStatus.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getStatus().toString()));
         columnProgress.setCellFactory(column -> new TableCell<FileModel, String>() {
             private final ProgressBar progressBar = new ProgressBar();
@@ -57,6 +63,7 @@ public class MainController {
             }
         });
         btnAddDownload.setOnAction(event -> openAddDownloadDialog());
+        loadDownloads();
     }
 
     public void addDownload(FileModel file) {
@@ -139,8 +146,28 @@ public class MainController {
         });
     }
 
+    public void saveDownloads() {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream("downloads.dat"))) {
+            oos.writeObject(new ArrayList<>(downloads));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void loadDownloads() {
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream("downloads.dat"))) {
+            @SuppressWarnings("unchecked")
+            List<FileModel> savedDownloads = (List<FileModel>) ois.readObject();
+            downloads.addAll(savedDownloads);
+        } catch (IOException | ClassNotFoundException e) {
+            System.out.println("No previous downloads found.");
+        }
+    }
+
+
 
     public void refreshTable() {
         Platform.runLater(() -> tableView.refresh());
+        saveDownloads();
     }
 }

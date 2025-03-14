@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class DownloadService {
 
@@ -68,7 +69,7 @@ public class DownloadService {
         if (fileSize > 0) {
             downloadSegmentedFile(file);
         } else {
-            downloadSegment(file, 0, 0);
+            downloadSegment(file, 0, 0, new AtomicLong(0));
         }
     }
 
@@ -83,13 +84,17 @@ public class DownloadService {
         CountDownLatch latch = new CountDownLatch(threadCount);
         AtomicBoolean hasFailure = new AtomicBoolean(false);
 
+        AtomicLong totalDownloadedBytes = new AtomicLong(0);
+
+        long startTime = System.nanoTime();
+
         for (int i = 0; i < threadCount; i++) {
             long start = i * segmentSize;
             long end = (i == threadCount - 1) ? file.getSize() - 1 : (start + segmentSize - 1);
 
             executorService.submit(() -> {
                 try {
-                    downloadSegment(file, start, end);
+                    downloadSegment(file, start, end, totalDownloadedBytes);
                 } catch (IOException e) {
                     hasFailure.set(true);
                     file.setStatus(FileStatus.failed);
@@ -98,8 +103,13 @@ public class DownloadService {
                     latch.countDown();
 
                     if (latch.getCount() == 0 && !hasFailure.get()) {
+                        final double elapsedTime = (System.nanoTime() - startTime) / 1e9;
                         Platform.runLater(() -> {
+                            if (elapsedTime > 0) {
+                                file.setSpeed(totalDownloadedBytes.get() / elapsedTime);
+                            }
                             file.setStatus(FileStatus.completed);
+                            file.setDownloadedSize((int) file.getSize());
                             mainController.refreshTable();
                         });
                     }
@@ -109,7 +119,7 @@ public class DownloadService {
         executorService.shutdown();
     }
 
-    private void downloadSegment(FileModel file, long start, long end) throws IOException {
+    private void downloadSegment(FileModel file, long start, long end, AtomicLong totalDownloadedBytes) throws IOException {
         Request.Builder requestBuilder = new Request.Builder().url(file.getUrl());
         if(file.getHeaders() != null) {
             file.getHeaders().forEach(requestBuilder::addHeader);
@@ -135,46 +145,28 @@ public class DownloadService {
                 raf.seek(start);
                 byte[] buffer = new byte[8192];
                 int bytesRead;
-                long totalBytesRead = start;
-                long startTime = System.nanoTime();
+                long bytesReadInSegment = 0;
 
                 while ((bytesRead = inputStream.read(buffer)) != -1) {
                     raf.write(buffer, 0, bytesRead);
-                    totalBytesRead += bytesRead;
+                    bytesReadInSegment += bytesRead;
 
-                    if (totalBytesRead % (1024 * 1024) < 8192) {
-                        final long finalTotalBytesRead = totalBytesRead;
-                        final double elapsedTime = (System.nanoTime() - startTime) / 1e9;
+                    long newTotalDownloaded = totalDownloadedBytes.addAndGet(bytesRead);
 
+                    if (bytesReadInSegment % (1024 * 1024) < 8192) {
                         Platform.runLater(() -> {
-                            file.setDownloadedSize((int) finalTotalBytesRead);
-                            if (elapsedTime > 0) {
-                                file.setSpeed(finalTotalBytesRead / elapsedTime);
-                            }
+                            file.setDownloadedSize((int) newTotalDownloaded);
                             mainController.refreshTable();
                         });
                     }
                 }
-
-                final long finalTotalBytesRead = totalBytesRead;
-                final double elapsedTime = (System.nanoTime() - startTime) / 1e9;
-                Platform.runLater(() -> {
-                    long fileDownloadedSize = file.getDownloadedSize() + finalTotalBytesRead;
-                    file.setDownloadedSize((int) fileDownloadedSize);
-                    if (elapsedTime > 0) {
-                        file.setSpeed(finalTotalBytesRead / elapsedTime);
-                    }
-                    mainController.refreshTable();
-                });
-
-            }catch (IOException e) {
+            } catch (IOException e) {
                 Platform.runLater(() -> {
                     file.setStatus(FileStatus.failed);
                     mainController.refreshTable();
                 });
                 System.out.println(e);
                 throw e;
-
             }
         } catch (IOException e) {
             Platform.runLater(() -> {
@@ -183,7 +175,6 @@ public class DownloadService {
             });
             System.out.println(e);
             throw e;
-
         }
     }
 }

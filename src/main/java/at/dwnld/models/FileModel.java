@@ -1,11 +1,14 @@
 package at.dwnld.models;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.util.Collections;
 import java.util.Map;
 import java.time.LocalDateTime;
 
-public class FileModel {
-
+public class FileModel  implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 1L;
     String name;
     String url;
     String path;
