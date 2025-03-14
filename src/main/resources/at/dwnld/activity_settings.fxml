@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.VBox?>
+<VBox xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="at.dwnld.controllers.SettingsController" spacing="10" style="-fx-padding: 20;">
+
+    <Label text="Download Path:"/>
+    <TextField fx:id="pathField"/>
+    <Button fx:id="browseButton" text="Browse"/>
+    <Label text="Max Parallel Downloads:"/>
+    <Spinner fx:id="maxParallelSpinner" min="1" max="10"/>
+
+    <CheckBox fx:id="defaultAppCheck" text="Set as Default App"/>
+
+    <Button fx:id="saveButton" text="Save"/>
+</VBox>

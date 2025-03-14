@@ -1,6 +1,8 @@
 package at.dwnld.controllers;
 
+import at.dwnld.MainActivity;
 import at.dwnld.models.FileModel;
+import at.dwnld.models.FileStatus;
 import at.dwnld.models.SettingModel;
 import at.dwnld.services.DownloadService;
 import javafx.application.Platform;
@@ -8,14 +10,19 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.geometry.Pos;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.layout.*;
 import javafx.stage.DirectoryChooser;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 import jfxtras.styles.jmetro.JMetro;
+import jfxtras.styles.jmetro.JMetroStyleClass;
 import jfxtras.styles.jmetro.Style;
-
 import java.io.*;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -26,7 +33,13 @@ import org.apache.commons.io.FileUtils;
 
 public class MainController {
 
+    @FXML private Label lblTotalDownloads;
+    @FXML private Label lblActiveDownloads;
+    @FXML private Label lblTotalSpeed;
+    @FXML private TextField searchField;
     @FXML private Button btnAddDownload;
+    @FXML private Button btnDelete;
+    @FXML private Button btnSettings;
     @FXML private TableView<FileModel> tableView;
     @FXML private TableColumn<FileModel, String> columnName;
     @FXML private TableColumn<FileModel, String> columnSize;
@@ -37,13 +50,15 @@ public class MainController {
     DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm a");
 
     private final ObservableList<FileModel> downloads = FXCollections.observableArrayList();
+    SettingModel sm;
 
     @FXML
     private void initialize() {
+        sm = SettingModel.getInstance();
         tableView.setItems(downloads);
         tableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         columnName.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getName()));
-        columnSize.setCellValueFactory(cellData -> new SimpleStringProperty(String.valueOf(FileUtils.byteCountToDisplaySize(cellData.getValue().getSize()))));
+        columnSize.setCellValueFactory(cellData -> new SimpleStringProperty(FileUtils.byteCountToDisplaySize(cellData.getValue().getSize())));
         columnDate.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getAdded().format(formatter)));
         columnStatus.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getStatus().toString()));
         columnProgress.setCellFactory(column -> new TableCell<FileModel, String>() {
@@ -63,11 +78,59 @@ public class MainController {
             }
         });
         btnAddDownload.setOnAction(event -> openAddDownloadDialog());
+        btnDelete.setOnAction(event -> openDeleteDialog());
+        btnSettings.setOnAction(event -> openSettings());
         loadDownloads();
+        updateStatusBar();
+        searchField.textProperty().addListener((observable, oldValue, newValue) -> {
+            filterTable(newValue);
+        });
     }
+
+    private void openDeleteDialog() {
+        Dialog<Boolean> dialog = new Dialog<>();
+        dialog.setTitle("Clear All Downloads");
+
+        Stage dialogStage = (Stage) dialog.getDialogPane().getScene().getWindow();
+        dialogStage.getIcons().add(new Image(Objects.requireNonNull(
+                getClass().getResourceAsStream("/at/dwnld/icon.png"))));
+
+        Label messageLabel = new Label("Are you sure you want to delete all downloads?");
+        messageLabel.setWrapText(true);
+
+        HBox contentBox = new HBox(10, messageLabel);
+        contentBox.setAlignment(Pos.CENTER_LEFT);
+
+        dialog.getDialogPane().setContent(contentBox);
+
+        ButtonType deleteButtonType = new ButtonType("Delete", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(deleteButtonType, ButtonType.CANCEL);
+
+        Button deleteButton = (Button) dialog.getDialogPane().lookupButton(deleteButtonType);
+        deleteButton.setStyle("-fx-background-color: #d9534f; -fx-text-fill: white;");
+
+        JMetro jMetro = new JMetro(Style.DARK);
+        jMetro.setScene(dialog.getDialogPane().getScene());
+
+        dialog.setResultConverter(button -> button == deleteButtonType);
+        Optional<Boolean> result = dialog.showAndWait();
+
+        result.ifPresent(shouldDelete -> {
+            if (shouldDelete) {
+                File dataFile = new File("downloads.dat");
+                if (dataFile.exists()) {
+                    if (dataFile.delete()) {
+                        downloads.clear();
+                    }}
+                Platform.runLater(() -> tableView.refresh());
+            }
+        });
+    }
+
 
     public void addDownload(FileModel file) {
         downloads.add(file);
+        updateStatusBar();
     }
 
     private void openAddDownloadDialog() {
@@ -88,7 +151,7 @@ public class MainController {
         urlField.setPrefHeight(30);
         GridPane.setHgrow(urlField, Priority.ALWAYS);
 
-        TextField pathField = new TextField(SettingModel.getDefaultDownloadDirectory());
+        TextField pathField = new TextField(sm.getDefault_path());
         pathField.setPromptText("Choose download location");
         pathField.setPrefHeight(30);
         GridPane.setHgrow(pathField, Priority.ALWAYS);
@@ -164,10 +227,70 @@ public class MainController {
         }
     }
 
+    @FXML private void openSettings() {
+        try {
+            FXMLLoader fxmlLoader = new FXMLLoader(MainActivity.class.getResource("activity_settings.fxml"));
+            Parent root = fxmlLoader.load();
+            root.getStyleClass().add(JMetroStyleClass.BACKGROUND);
+            Scene scene = new Scene(root, 300, 260);
+            JMetro jMetro = new JMetro(Style.DARK);
+            jMetro.setScene(scene);
+            Stage settingsStage = new Stage();
+            settingsStage.setMinWidth(312);
+            settingsStage.setMinHeight(272);
+            settingsStage.getIcons().add(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/at/dwnld/icon.png"))));
+            settingsStage.setTitle("Settings");
+            settingsStage.setScene(scene);
+            settingsStage.initModality(Modality.APPLICATION_MODAL); // Blocks interaction with main window
+            settingsStage.show();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
+    private void filterTable(String searchText) {
+        if (searchText == null || searchText.isEmpty()) {
+            tableView.setItems(downloads);
+        } else {
+            ObservableList<FileModel> filteredList = FXCollections.observableArrayList();
+            String lowerCaseFilter = searchText.toLowerCase();
+
+            for (FileModel file : downloads) {
+                if (file.getName().toLowerCase().contains(lowerCaseFilter)) {
+                    filteredList.add(file);
+                }
+            }
+
+            tableView.setItems(filteredList);
+        }
+    }
+
+    private void updateStatusBar() {
+        int totalDownloads = downloads.size();
+        int activeDownloads = 0;
+        double totalSpeed = 0;
+
+        for (FileModel file : downloads) {
+            if (file.getStatus() == FileStatus.inProgress) {
+                activeDownloads++;
+                totalSpeed += file.getSpeed();
+            }
+        }
+        double finalTotalSpeed = totalSpeed;
+        int finalActiveDownloads = activeDownloads;
+        Platform.runLater(() -> {
+            lblTotalDownloads.setText("Downloads: " + totalDownloads);
+            lblActiveDownloads.setText("Active: " + finalActiveDownloads);
+            lblTotalSpeed.setText("Speed: " + FileUtils.byteCountToDisplaySize(finalTotalSpeed) + "/s");
+        });
+    }
 
     public void refreshTable() {
-        Platform.runLater(() -> tableView.refresh());
+        Platform.runLater(() -> {
+            tableView.refresh();
+            updateStatusBar();
+        });
         saveDownloads();
     }
+
 }
