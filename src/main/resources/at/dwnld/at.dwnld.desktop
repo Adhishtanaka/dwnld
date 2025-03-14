@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Dwnld
+Exec=/usr/bin/at.dwnld %u
+Type=Application
+Terminal=false
+MimeType=x-scheme-handler/dwnld;
