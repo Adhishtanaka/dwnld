@@ -1,6 +1,7 @@
 package at.dwnld.controllers;
 
 import at.dwnld.models.FileModel;
+import at.dwnld.models.SettingModel;
 import at.dwnld.services.DownloadService;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
@@ -8,6 +9,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
 import javafx.scene.layout.*;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
@@ -15,6 +17,7 @@ import jfxtras.styles.jmetro.JMetro;
 import jfxtras.styles.jmetro.Style;
 import java.io.File;
 import java.io.IOException;
+import java.util.Objects;
 import java.util.Optional;
 
 public class MainController {
@@ -66,6 +69,10 @@ public class MainController {
         dialog.setTitle("Add Download");
         dialog.setHeaderText("Enter the download URL and select a save location:");
 
+        Stage dialogStage = (Stage) dialog.getDialogPane().getScene().getWindow();
+        dialogStage.getIcons().add(new Image(Objects.requireNonNull(
+                getClass().getResourceAsStream("/at/dwnld/icon.png"))));
+
         JMetro jMetro = new JMetro(Style.DARK);
         jMetro.setScene(dialog.getDialogPane().getScene());
 
@@ -74,9 +81,9 @@ public class MainController {
         urlField.setPrefHeight(30);
         GridPane.setHgrow(urlField, Priority.ALWAYS);
 
-        TextField pathField = new TextField(getDefaultDownloadDirectory());
-        urlField.setPrefHeight(30);
+        TextField pathField = new TextField(SettingModel.getDefaultDownloadDirectory());
         pathField.setPromptText("Choose download location");
+        pathField.setPrefHeight(30);
         GridPane.setHgrow(pathField, Priority.ALWAYS);
 
         Button browseButton = new Button("Browse...");
@@ -125,25 +132,13 @@ public class MainController {
             String savePath = data[1];
             DownloadService ds = new DownloadService(this);
             try {
-                ds.download(url,savePath,null);
+                ds.download(url, savePath, null);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         });
     }
 
-    private String getDefaultDownloadDirectory() {
-        String userHome = System.getProperty("user.home");
-        if (userHome == null) return System.getProperty("java.io.tmpdir");
-
-        String os = System.getProperty("os.name").toLowerCase();
-        if (os.contains("win")) {
-            return userHome + "\\Downloads";
-        } else {
-            return userHome + "/Downloads";
-        }
-
-    }
 
     public void refreshTable() {
         Platform.runLater(() -> tableView.refresh());
