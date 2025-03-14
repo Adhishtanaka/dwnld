@@ -83,9 +83,9 @@
                 </padding>
                 <Label fx:id="lblTotalDownloads" text="Downloads: 0"/>
                 <Label fx:id="lblActiveDownloads" text="Active: 0"/>
-                <Label fx:id="lblTotalSpeed" text="Speed: 0 KB/s"/>
                 <Region HBox.hgrow="ALWAYS"/>
-                <Label fx:id="lblConnectionStatus" text="Connected"/>
+                <Label fx:id="lblTotalSpeed" text="Speed: 0 KB/s"/>
+
             </HBox>
         </bottom>
     </BorderPane>
