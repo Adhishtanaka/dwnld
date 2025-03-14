@@ -1,11 +1,14 @@
 package at.dwnld.services;
 
 import at.dwnld.controllers.MainController;
+import at.dwnld.models.FileInfoModel;
 import at.dwnld.models.FileModel;
 import at.dwnld.models.FileStatus;
 import javafx.application.Platform;
 import okhttp3.*;
+import org.jetbrains.annotations.NotNull;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.*;
@@ -27,40 +30,100 @@ public class DownloadService {
                 .build();
     }
 
-    public AbstractMap.SimpleEntry<String, Long> getFileInfo(String url, Map<String, String> headers) throws IOException {
+    public FileInfoModel getFileInfo(String url, Map<String, String> headers) throws IOException {
         Request.Builder requestBuilder = new Request.Builder().url(url).head();
         if (headers != null) {
             headers.forEach(requestBuilder::addHeader);
         }
-        try (Response response = client.newCall(requestBuilder.build()).execute()) {
-            if (response.isSuccessful() && response.body() != null) {
-                String fileName;
+
+        OkHttpClient redirectClient = client.newBuilder()
+                .followRedirects(true)
+                .followSslRedirects(true)
+                .build();
+
+        try (Response response = redirectClient.newCall(requestBuilder.build()).execute()) {
+            if (response.isSuccessful()) {
+                String finalUrl = response.request().url().toString();
+                String fileName = null;
+
                 String contentDisposition = response.header("Content-Disposition");
-                if (contentDisposition != null && contentDisposition.contains("filename=")) {
-                    fileName = contentDisposition.split("filename=")[1].replace("\"", "").trim();
-                } else {
-                    fileName = url.substring(url.lastIndexOf("/") + 1);
-                    if (!fileName.contains(".")) {
-                        fileName = "downloaded_file_" + System.currentTimeMillis() + ".bin";
+                if (contentDisposition != null) {
+                    if (contentDisposition.contains("filename=")) {
+                        String[] parts = contentDisposition.split("filename=");
+                        if (parts.length > 1) {
+                            fileName = parts[1].replaceAll("[\"';]", "").trim();
+                        }
+                    } else if (contentDisposition.contains("filename*=")) {
+                        String[] parts = contentDisposition.split("filename\\*=");
+                        if (parts.length > 1) {
+                            String encodedPart = parts[1].trim();
+                            if (encodedPart.contains("''")) {
+                                fileName = encodedPart.substring(encodedPart.lastIndexOf("''") + 2)
+                                        .replaceAll("[\"';]", "").trim();
+                                try {
+                                    fileName = java.net.URLDecoder.decode(fileName, StandardCharsets.UTF_8);
+                                } catch (Exception e) {
+                                    System.out.println(e);
+                                }
+                            }
+                        }
                     }
                 }
+
+                if (fileName == null || fileName.isEmpty()) {
+                    String urlPath = finalUrl.split("\\?")[0];
+                    fileName = urlPath.substring(urlPath.lastIndexOf("/") + 1);
+
+                    if (!fileName.contains(".")) {
+                        String contentType = response.header("Content-Type");
+                        String extension = getExtension(contentType);
+
+                        fileName = "downloaded_file_" + System.currentTimeMillis() + extension;
+                    }
+                }
+
                 long fileSize = response.header("Content-Length") != null ?
                         Long.parseLong(Objects.requireNonNull(response.header("Content-Length"))) : -1L;
-                return new AbstractMap.SimpleEntry<>(fileName, fileSize);
+
+                return new FileInfoModel(finalUrl, fileName, fileSize);
             }
         }
-        return new AbstractMap.SimpleEntry<>(null, -1L);
+        return new FileInfoModel(null, null, -1L);
+    }
+
+    @NotNull
+    private static String getExtension(String contentType) {
+        String extension = ".bin";
+
+        if (contentType != null) {
+            if (contentType.contains("text/html")) extension = ".html";
+            else if (contentType.contains("text/plain")) extension = ".txt";
+            else if (contentType.contains("application/pdf")) extension = ".pdf";
+            else if (contentType.contains("image/jpeg")) extension = ".jpg";
+            else if (contentType.contains("image/png")) extension = ".png";
+            else if (contentType.contains("application/zip")) extension = ".zip";
+            else if (contentType.contains("application/json")) extension = ".json";
+            else if (contentType.contains("application/xml")) extension = ".xml";
+            else if (contentType.contains("audio/mpeg")) extension = ".mp3";
+            else if (contentType.contains("video/mp4")) extension = ".mp4";
+            else if (contentType.contains("application/msword")) extension = ".doc";
+            else if (contentType.contains("application/vnd.openxmlformats-officedocument.wordprocessingml.document")) extension = ".docx";
+            else if (contentType.contains("application/vnd.ms-excel")) extension = ".xls";
+            else if (contentType.contains("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) extension = ".xlsx";
+        }
+        return extension;
     }
 
 
     public void download(String url, String filePath, Map<String, String> headers) throws IOException {
-        AbstractMap.SimpleEntry<String, Long> fileInfo = getFileInfo(url, headers);
-        String fileName = fileInfo.getKey() != null ? fileInfo.getKey() : "downloaded_file";
+        FileInfoModel fileInfo = getFileInfo(url, headers);
+        url = fileInfo.finalUrl();
+        String fileName = fileInfo.name() != null ? fileInfo.name(): "downloaded_file";
         if (!filePath.endsWith(File.separator)) {
             filePath += File.separator;
         }
         filePath += fileName;
-        long fileSize = fileInfo.getValue();
+        long fileSize = fileInfo.size();
 
         FileModel file = new FileModel(fileName, url, filePath, LocalDateTime.now(), fileSize, LocalDateTime.now(), FileStatus.pending, 0, 0, headers);
 
@@ -121,7 +184,7 @@ public class DownloadService {
 
     private void downloadSegment(FileModel file, long start, long end, AtomicLong totalDownloadedBytes) throws IOException {
         Request.Builder requestBuilder = new Request.Builder().url(file.getUrl());
-        if(file.getHeaders() != null) {
+        if (file.getHeaders() != null) {
             file.getHeaders().forEach(requestBuilder::addHeader);
         }
 
@@ -146,18 +209,36 @@ public class DownloadService {
                 byte[] buffer = new byte[8192];
                 int bytesRead;
                 long bytesReadInSegment = 0;
+                long lastUpdateTime = System.nanoTime();
+                long lastDownloadedBytes = totalDownloadedBytes.get();
 
                 while ((bytesRead = inputStream.read(buffer)) != -1) {
                     raf.write(buffer, 0, bytesRead);
                     bytesReadInSegment += bytesRead;
-
                     long newTotalDownloaded = totalDownloadedBytes.addAndGet(bytesRead);
 
                     if (bytesReadInSegment % (1024 * 1024) < 8192) {
-                        Platform.runLater(() -> {
-                            file.setDownloadedSize((int) newTotalDownloaded);
-                            mainController.refreshTable();
-                        });
+                        long currentTime = System.nanoTime();
+                        double timeDiff = (currentTime - lastUpdateTime) / 1e9;
+
+                        if (timeDiff > 0.5) {
+                            long bytesDiff = newTotalDownloaded - lastDownloadedBytes;
+                            double currentSpeed = bytesDiff / timeDiff;
+
+                            Platform.runLater(() -> {
+                                file.setSpeed((long) currentSpeed);
+                                file.setDownloadedSize((int) newTotalDownloaded);
+                                mainController.refreshTable();
+                            });
+
+                            lastUpdateTime = currentTime;
+                            lastDownloadedBytes = newTotalDownloaded;
+                        } else {
+                            Platform.runLater(() -> {
+                                file.setDownloadedSize((int) newTotalDownloaded);
+                                mainController.refreshTable();
+                            });
+                        }
                     }
                 }
             } catch (IOException e) {
@@ -177,4 +258,5 @@ public class DownloadService {
             throw e;
         }
     }
+
 }

@@ -2,7 +2,7 @@ package at.dwnld.models;
 
 import java.io.Serial;
 import java.io.Serializable;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.time.LocalDateTime;
 
@@ -30,7 +30,7 @@ public class FileModel  implements Serializable {
         this.status = status != null ? status : FileStatus.pending;
         this.speed = speed;
         this.downloadedSize = downloadedSize;
-        this.headers = headers != null ? headers : Collections.emptyMap();
+        this.headers = headers != null ? headers : new HashMap<>(Map.of("User-Agent", "Mozilla/5.0"));
     }
 
 
