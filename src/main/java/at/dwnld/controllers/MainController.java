@@ -15,6 +15,11 @@ import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
 import javafx.scene.layout.*;
 import javafx.stage.DirectoryChooser;
@@ -23,6 +28,7 @@ import javafx.stage.Stage;
 import jfxtras.styles.jmetro.JMetro;
 import jfxtras.styles.jmetro.JMetroStyleClass;
 import jfxtras.styles.jmetro.Style;
+import java.awt.*;
 import java.io.*;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -79,6 +85,36 @@ public class MainController {
                 }
             }
         });
+        ContextMenu contextMenu = new ContextMenu();
+        MenuItem openItem = new MenuItem("Open");
+        MenuItem showItem = new MenuItem("Show in Folder");
+        MenuItem removeItem = new MenuItem("Remove File");
+        MenuItem openPageItem = new MenuItem("Open Download Page");
+        MenuItem changeUrlItem = new MenuItem("Change URL");
+        MenuItem fileInformationItem = new MenuItem("File Information");
+        contextMenu.getItems().addAll(openItem,showItem,removeItem,openPageItem,changeUrlItem,fileInformationItem);
+        tableView.setRowFactory(tv -> {
+            TableRow<FileModel> row = new TableRow<>();
+
+            row.setOnContextMenuRequested(event -> {
+                if (!row.isEmpty()) {
+                    FileModel file = row.getItem();
+                    tableView.getSelectionModel().select(file);
+                    openItem.setOnAction(e -> openFileItem(file));
+                    showItem.setOnAction(e -> openFileFolder(file));
+                    removeItem.setOnAction(e -> removeFileItem(file));
+                    openPageItem.setOnAction(e -> System.out.println("not implemented yet"));
+                    changeUrlItem.setOnAction(e -> changeFileUrl(file));
+                    fileInformationItem.setOnAction(e -> openInformationDialog(file));
+                    contextMenu.show(row, event.getScreenX(), event.getScreenY());
+                } else {
+                    contextMenu.hide();
+                }
+            });
+
+            return row;
+        });
+
         btnAddDownload.setOnAction(event -> openAddDownloadDialog());
         btnDelete.setOnAction(event -> openDeleteDialog());
         btnSettings.setOnAction(event -> openSettings());
@@ -89,6 +125,93 @@ public class MainController {
         searchField.textProperty().addListener((observable, oldValue, newValue) -> {
             filterTable(newValue);
         });
+    }
+
+    private void changeFileUrl(FileModel file) {
+        Dialog<String> dialog = new Dialog<>();
+        dialog.setTitle("Change Download URL");
+        Stage dialogStage = (Stage) dialog.getDialogPane().getScene().getWindow();
+        dialogStage.getIcons().add(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/at/dwnld/icon.png"))));
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.add(new Label("File:"), 0, 0);
+        grid.add(new Label(file.getName()), 1, 0);
+        grid.add(new Label("New URL:"), 0, 1);
+        TextField urlField = new TextField(file.getUrl());
+        grid.add(urlField, 1, 1);
+        dialog.getDialogPane().setContent(grid);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        JMetro jMetro = new JMetro(Style.DARK);
+        jMetro.setScene(dialog.getDialogPane().getScene());
+        dialog.setResultConverter(button -> button == ButtonType.OK ? urlField.getText() : null);
+        Optional<String> result = dialog.showAndWait();
+        result.ifPresent(newUrl -> {
+            if (!newUrl.isEmpty()) {
+                file.setUrl(newUrl);
+            }
+        });
+    }
+
+    private void openInformationDialog(FileModel file) {
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("File Information");
+
+        Stage dialogStage = (Stage) dialog.getDialogPane().getScene().getWindow();
+        dialogStage.getIcons().add(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/at/dwnld/icon.png"))));
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.add(new Label("Name:"), 0, 0);
+        grid.add(new Label(file.getName()), 1, 0);
+        grid.add(new Label("URL:"), 0, 1);
+        grid.add(new Label(file.getUrl()), 1, 1);
+        grid.add(new Label("Path:"), 0, 2);
+        grid.add(new Label(file.getPath()), 1, 2);
+        grid.add(new Label("Added:"), 0, 3);
+        grid.add(new Label(file.getAdded().format(formatter)), 1, 3);
+        grid.add(new Label("Size:"), 0, 4);
+        grid.add(new Label(FileUtils.byteCountToDisplaySize(file.getSize())), 1, 4);
+        grid.add(new Label("Last Tried:"), 0, 5);
+        grid.add(new Label(file.getLastTried().format(formatter)), 1, 5);
+        grid.add(new Label("Status:"), 0, 6);
+        grid.add(new Label(file.getStatus().toString()), 1, 6);
+        JMetro jMetro = new JMetro(Style.DARK);
+        jMetro.setScene(dialog.getDialogPane().getScene());
+        dialog.getDialogPane().setContent(grid);
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.OK);
+        dialog.showAndWait();
+    }
+
+    private void removeFileItem(FileModel file) {
+        DownloadService ds = new DownloadService(this);
+        ds.cancelDownload(file);
+        downloads.remove(file);
+        refreshTable();
+    }
+
+    private void openFileFolder(FileModel file) {
+        File f = new File(file.getPath());
+        File folder = f.getParentFile();
+
+        if (folder.exists() && folder.isDirectory()) {
+            try {
+                Desktop.getDesktop().open(folder);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void openFileItem(FileModel file) {
+        File f = new File(file.getPath());
+        if (f.exists()) {
+            try {
+                Desktop.getDesktop().open(f);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     private void pauseAllDownloads() {
