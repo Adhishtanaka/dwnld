@@ -1,7 +1,6 @@
 package at.dwnld.models;
 
-import java.io.Serial;
-import java.io.Serializable;
+import java.io.*;
 
 public class SettingModel implements Serializable {
     @Serial
@@ -20,7 +19,16 @@ public class SettingModel implements Serializable {
 
     public static SettingModel getInstance() {
         if (instance == null) {
-            instance = new SettingModel(getDefaultDownloadDirectory(), 4, true);
+            File file = new File("settings.dat");
+            if (file.exists()) {
+                try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file))) {
+                    instance = (SettingModel) ois.readObject();
+                } catch (IOException | ClassNotFoundException e) {
+                    instance = new SettingModel(getDefaultDownloadDirectory(), 4, true);
+                }
+            } else {
+                instance = new SettingModel(getDefaultDownloadDirectory(), 4, true);
+            }
         }
         return instance;
     }
