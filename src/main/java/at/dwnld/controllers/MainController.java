@@ -67,7 +67,11 @@ public class MainController {
         tableView.setItems(downloads);
         tableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         columnName.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getName()));
-        columnSize.setCellValueFactory(cellData -> new SimpleStringProperty(FileUtils.byteCountToDisplaySize(cellData.getValue().getSize())));
+        columnSize.setCellValueFactory(cellData -> {
+            long size = cellData.getValue().getSize();
+            String displaySize = (size == -1) ? "N/A" : FileUtils.byteCountToDisplaySize(size);
+            return new SimpleStringProperty(displaySize);
+        });
         columnDate.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getAdded().format(formatter)));
         columnStatus.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getStatus().toString()));
         columnProgress.setCellFactory(column -> new TableCell<FileModel, String>() {
