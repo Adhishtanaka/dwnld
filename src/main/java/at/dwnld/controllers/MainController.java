@@ -89,10 +89,13 @@ public class MainController {
         MenuItem openItem = new MenuItem("Open");
         MenuItem showItem = new MenuItem("Show in Folder");
         MenuItem removeItem = new MenuItem("Remove File");
+        MenuItem removeFromListItem = new MenuItem("Remove");
         MenuItem openPageItem = new MenuItem("Open Download Page");
         MenuItem changeUrlItem = new MenuItem("Change URL");
         MenuItem fileInformationItem = new MenuItem("File Information");
-        contextMenu.getItems().addAll(openItem,showItem,removeItem,openPageItem,changeUrlItem,fileInformationItem);
+        MenuItem pauseResumeItem = new MenuItem();
+        MenuItem cancelItem = new MenuItem("Cancel");
+        contextMenu.getItems().addAll(openItem,showItem,removeFromListItem,removeItem,openPageItem,changeUrlItem,fileInformationItem);
         tableView.setRowFactory(tv -> {
             TableRow<FileModel> row = new TableRow<>();
 
@@ -100,6 +103,20 @@ public class MainController {
                 if (!row.isEmpty()) {
                     FileModel file = row.getItem();
                     tableView.getSelectionModel().select(file);
+                    if (file.getStatus() == FileStatus.inProgress) {
+                        pauseResumeItem.setText("Pause");
+                        pauseResumeItem.setOnAction(e -> pauseDownloadItem(file));
+                        contextMenu.getItems().addFirst(pauseResumeItem);
+                    } else if (file.getStatus() == FileStatus.paused) {
+                        pauseResumeItem.setText("Resume");
+                        pauseResumeItem.setOnAction(e -> resumeDownloadItem(file));
+                        contextMenu.getItems().addFirst(pauseResumeItem);
+                    }
+                    if (file.getStatus() != FileStatus.completed){
+                        cancelItem.setOnAction(e -> cancleFileItem(file));
+                        contextMenu.getItems().add(1,cancelItem);
+                    }
+                    removeFromListItem.setOnAction(e ->  removeFromList(file));
                     openItem.setOnAction(e -> openFileItem(file));
                     showItem.setOnAction(e -> openFileFolder(file));
                     removeItem.setOnAction(e -> removeFileItem(file));
@@ -125,6 +142,21 @@ public class MainController {
         searchField.textProperty().addListener((observable, oldValue, newValue) -> {
             filterTable(newValue);
         });
+    }
+
+    private void removeFromList(FileModel file) {
+        downloads.remove(file);
+        refreshTable();
+    }
+
+    private void resumeDownloadItem(FileModel file) {
+        DownloadService ds = new DownloadService(this);
+        ds.resumeDownload(file);
+    }
+
+    private void pauseDownloadItem(FileModel file) {
+        DownloadService ds = new DownloadService(this);
+        ds.pauseDownload(file);
     }
 
     private void changeFileUrl(FileModel file) {
@@ -183,11 +215,16 @@ public class MainController {
         dialog.showAndWait();
     }
 
-    private void removeFileItem(FileModel file) {
+    private void cancleFileItem(FileModel file) {
         DownloadService ds = new DownloadService(this);
         ds.cancelDownload(file);
+    }
+
+    private void removeFileItem(FileModel file) {
+        DownloadService ds = new DownloadService(this);
         downloads.remove(file);
-        refreshTable();
+        ds.cancelDownload(file);
+
     }
 
     private void openFileFolder(FileModel file) {
