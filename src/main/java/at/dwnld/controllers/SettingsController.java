@@ -3,9 +3,15 @@ package at.dwnld.controllers;
 import at.dwnld.models.SettingModel;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.TextField;
+import javafx.scene.input.MouseEvent;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Window;
+
+import java.awt.*;
 import java.io.*;
+import java.net.URI;
 
 public class SettingsController {
     @FXML private TextField pathField;
@@ -69,6 +75,14 @@ public class SettingsController {
             }
         } else {
             settings = SettingModel.getInstance();
+        }
+    }
+
+    public void openGitHub(MouseEvent mouseEvent) {
+        try {
+            Desktop.getDesktop().browse(new URI("https://github.com/Adhishtanaka"));
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 }
