@@ -30,6 +30,7 @@ import jfxtras.styles.jmetro.JMetroStyleClass;
 import jfxtras.styles.jmetro.Style;
 import java.awt.*;
 import java.io.*;
+import java.net.URI;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -85,6 +86,7 @@ public class MainController {
                 }
             }
         });
+
         ContextMenu contextMenu = new ContextMenu();
         MenuItem openItem = new MenuItem("Open");
         MenuItem showItem = new MenuItem("Show in Folder");
@@ -95,7 +97,8 @@ public class MainController {
         MenuItem fileInformationItem = new MenuItem("File Information");
         MenuItem pauseResumeItem = new MenuItem();
         MenuItem cancelItem = new MenuItem("Cancel");
-        contextMenu.getItems().addAll(openItem,showItem,removeFromListItem,removeItem,openPageItem,changeUrlItem,fileInformationItem);
+        contextMenu.getItems().addAll( showItem, removeFromListItem, removeItem, openPageItem, changeUrlItem);
+
         tableView.setRowFactory(tv -> {
             TableRow<FileModel> row = new TableRow<>();
 
@@ -103,6 +106,10 @@ public class MainController {
                 if (!row.isEmpty()) {
                     FileModel file = row.getItem();
                     tableView.getSelectionModel().select(file);
+
+                    contextMenu.getItems().remove(pauseResumeItem);
+                    contextMenu.getItems().remove(cancelItem);
+
                     if (file.getStatus() == FileStatus.inProgress) {
                         pauseResumeItem.setText("Pause");
                         pauseResumeItem.setOnAction(e -> pauseDownloadItem(file));
@@ -112,17 +119,37 @@ public class MainController {
                         pauseResumeItem.setOnAction(e -> resumeDownloadItem(file));
                         contextMenu.getItems().addFirst(pauseResumeItem);
                     }
-                    if (file.getStatus() != FileStatus.completed){
-                        cancelItem.setOnAction(e -> cancleFileItem(file));
-                        contextMenu.getItems().add(1,cancelItem);
+
+                    if(file.getStatus() == FileStatus.completed){
+                        contextMenu.getItems().addFirst(openItem);
                     }
-                    removeFromListItem.setOnAction(e ->  removeFromList(file));
+
+                    if (file.getStatus() != FileStatus.completed) {
+                        cancelItem.setOnAction(e -> cancleFileItem(file));
+                        contextMenu.getItems().add(contextMenu.getItems().contains(pauseResumeItem) ? 1 : 0, cancelItem);
+                    }
+
                     openItem.setOnAction(e -> openFileItem(file));
                     showItem.setOnAction(e -> openFileFolder(file));
                     removeItem.setOnAction(e -> removeFileItem(file));
-                    openPageItem.setOnAction(e -> System.out.println("not implemented yet"));
+                    removeFromListItem.setOnAction(e -> removeFromList(file));
                     changeUrlItem.setOnAction(e -> changeFileUrl(file));
                     fileInformationItem.setOnAction(e -> openInformationDialog(file));
+
+                    if (file.getWebsiteUrl() != null) {
+                        openPageItem.setOnAction(e -> openWebsiteUrl(file));
+                        if (!contextMenu.getItems().contains(openPageItem)) {
+                            contextMenu.getItems().add(openPageItem);
+                        }
+                    } else {
+                        contextMenu.getItems().remove(openPageItem);
+                    }
+
+                    // Add file information item
+                    if (!contextMenu.getItems().contains(fileInformationItem)) {
+                        contextMenu.getItems().add(fileInformationItem);
+                    }
+
                     contextMenu.show(row, event.getScreenX(), event.getScreenY());
                 } else {
                     contextMenu.hide();
@@ -142,6 +169,13 @@ public class MainController {
         searchField.textProperty().addListener((observable, oldValue, newValue) -> {
             filterTable(newValue);
         });
+    }
+    private void openWebsiteUrl(FileModel file) {
+        try {
+            Desktop.getDesktop().browse(new URI(file.getWebsiteUrl()));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private void removeFromList(FileModel file) {
