@@ -7,16 +7,16 @@
 - Multi-threaded downloads for faster speeds
 - Modern dark-themed UI with JMetro
 - Download history and progress tracking
+- Pause and resume functionality
+- Parallel downloads with queue support
 - Cross-platform support (Windows, macOS, Linux)
 
 ## Planned Features
 
 - Support for downloading from streaming sites
-- Deeplink intergration  
+- Deeplink integration  
 - Scheduler for automated downloads
-- Pause and resume functionality
-- Parallel downloads with queue support
-- Scheduler for automated downloads
+- Improve Performance
 
 ## Contributing
 If you find a bug or have suggestions for improvement, feel free to open an issue or submit a pull request on GitHub.
