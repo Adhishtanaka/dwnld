@@ -2,6 +2,8 @@
 
 **dwnld** is a cross-platform download manager built with Java, using **OkHttp** for efficient network requests and **JavaFX with JMetro** for a modern UI. It aims to be a lightweight yet powerful alternative to IDM, offering seamless and reliable downloads across Windows, macOS, and Linux.
 
+![dwnld Interface](./screenshot/d.gif)
+
 ## Features 
 
 - Multi-threaded downloads for faster speeds
