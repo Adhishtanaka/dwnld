@@ -5,6 +5,9 @@ import at.dwnld.models.FileModel;
 import at.dwnld.models.FileStatus;
 import at.dwnld.models.SettingModel;
 import at.dwnld.services.DownloadService;
+import com.pixelduke.transit.Style;
+import com.pixelduke.transit.TransitStyleClass;
+import com.pixelduke.transit.TransitTheme;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -25,9 +28,6 @@ import javafx.scene.layout.*;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
-import jfxtras.styles.jmetro.JMetro;
-import jfxtras.styles.jmetro.JMetroStyleClass;
-import jfxtras.styles.jmetro.Style;
 import java.awt.*;
 import java.io.*;
 import java.net.URI;
@@ -212,8 +212,8 @@ public class MainController {
         grid.add(urlField, 1, 1);
         dialog.getDialogPane().setContent(grid);
         dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
-        JMetro jMetro = new JMetro(Style.DARK);
-        jMetro.setScene(dialog.getDialogPane().getScene());
+        TransitTheme transitTheme = new TransitTheme(Style.DARK);
+        transitTheme.setScene(dialog.getDialogPane().getScene());
         dialog.setResultConverter(button -> button == ButtonType.OK ? urlField.getText() : null);
         Optional<String> result = dialog.showAndWait();
         result.ifPresent(newUrl -> {
@@ -246,8 +246,8 @@ public class MainController {
         grid.add(new Label(file.getLastTried().format(formatter)), 1, 5);
         grid.add(new Label("Status:"), 0, 6);
         grid.add(new Label(file.getStatus().toString()), 1, 6);
-        JMetro jMetro = new JMetro(Style.DARK);
-        jMetro.setScene(dialog.getDialogPane().getScene());
+        TransitTheme transitTheme = new TransitTheme(Style.DARK);
+        transitTheme.setScene(dialog.getDialogPane().getScene());
         dialog.getDialogPane().setContent(grid);
         dialog.getDialogPane().getButtonTypes().add(ButtonType.OK);
         dialog.showAndWait();
@@ -329,8 +329,8 @@ public class MainController {
         Button deleteButton = (Button) dialog.getDialogPane().lookupButton(deleteButtonType);
         deleteButton.setStyle("-fx-background-color: #d9534f; -fx-text-fill: white;");
 
-        JMetro jMetro = new JMetro(Style.DARK);
-        jMetro.setScene(dialog.getDialogPane().getScene());
+        TransitTheme transitTheme = new TransitTheme(Style.DARK);
+        transitTheme.setScene(dialog.getDialogPane().getScene());
 
         dialog.setResultConverter(button -> button == deleteButtonType);
         Optional<Boolean> result = dialog.showAndWait();
@@ -363,8 +363,8 @@ public class MainController {
         dialogStage.getIcons().add(new Image(Objects.requireNonNull(
                 getClass().getResourceAsStream("/at/dwnld/icon.png"))));
 
-        JMetro jMetro = new JMetro(Style.DARK);
-        jMetro.setScene(dialog.getDialogPane().getScene());
+        TransitTheme transitTheme = new TransitTheme(Style.DARK);
+        transitTheme.setScene(dialog.getDialogPane().getScene());
 
         TextField urlField = new TextField();
         urlField.setPromptText("Enter URL here");
@@ -451,10 +451,10 @@ public class MainController {
         try {
             FXMLLoader fxmlLoader = new FXMLLoader(MainActivity.class.getResource("activity_settings.fxml"));
             Parent root = fxmlLoader.load();
-            root.getStyleClass().add(JMetroStyleClass.BACKGROUND);
+            root.getStyleClass().add(TransitStyleClass.BACKGROUND);
             Scene scene = new Scene(root, 300, 260);
-            JMetro jMetro = new JMetro(Style.DARK);
-            jMetro.setScene(scene);
+            TransitTheme transitTheme = new TransitTheme(Style.DARK);
+            transitTheme.setScene(scene);
             Stage settingsStage = new Stage();
             settingsStage.setMinWidth(312);
             settingsStage.setMinHeight(272);

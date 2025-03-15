@@ -1,5 +1,8 @@
 package at.dwnld;
 
+import com.pixelduke.transit.Style;
+import com.pixelduke.transit.TransitStyleClass;
+import com.pixelduke.transit.TransitTheme;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
@@ -8,10 +11,6 @@ import javafx.scene.control.TabPane;
 import javafx.scene.image.Image;
 import javafx.scene.layout.BorderPane;
 import javafx.stage.Stage;
-import jfxtras.styles.jmetro.JMetro;
-import jfxtras.styles.jmetro.JMetroStyleClass;
-import jfxtras.styles.jmetro.Style;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -32,12 +31,12 @@ public class MainActivity extends Application {
         borderPane.setCenter(fxmlLoader.load());
         TabPane tabPane = new TabPane();
         borderPane.setTop(tabPane);
-        borderPane.getStyleClass().add(JMetroStyleClass.BACKGROUND);
+        borderPane.getStyleClass().add(TransitStyleClass.BACKGROUND);
         Scene scene = new Scene(borderPane, 600, 400);
         stage.setMinWidth(612);
         stage.setMinHeight(412);
-        JMetro jMetro = new JMetro(Style.DARK);
-        jMetro.setScene(scene);
+        TransitTheme transitTheme = new TransitTheme(Style.DARK);
+        transitTheme.setScene(scene);
         stage.setTitle("dwnld");
         stage.setScene(scene);
         stage.show();
