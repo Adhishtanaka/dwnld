@@ -131,7 +131,7 @@ public class DownloadService {
         filePath += fileName;
         long fileSize = fileInfo.size();
 
-        FileModel file = new FileModel(fileName, url, filePath, LocalDateTime.now(), fileSize, LocalDateTime.now(), FileStatus.pending, 0, 0, headers);
+        FileModel file = new FileModel(fileName, url, filePath, LocalDateTime.now(), fileSize, LocalDateTime.now(), FileStatus.pending, 0, 0, headers,null);
         mainController.addDownload(file);
 
         if (checkMaxParallelDownloads()) {

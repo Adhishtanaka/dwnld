@@ -19,8 +19,9 @@ public class FileModel  implements Serializable {
     double speed;
     long downloadedSize;
     Map<String, String> headers;
+    String websiteUrl;
 
-    public FileModel(String name, String url, String path, LocalDateTime added, long size, LocalDateTime lastTried, FileStatus status, double speed, long downloadedSize, Map<String, String> headers) {
+    public FileModel(String name, String url, String path, LocalDateTime added, long size, LocalDateTime lastTried, FileStatus status, double speed, long downloadedSize, Map<String, String> headers ,String websiteUrl) {
         this.name = name != null ? name : "unknown";
         this.url = url;
         this.path = path;
@@ -31,8 +32,14 @@ public class FileModel  implements Serializable {
         this.speed = speed;
         this.downloadedSize = downloadedSize;
         this.headers = headers != null ? headers : new HashMap<>(Map.of("User-Agent", "Mozilla/5.0"));
+        this.websiteUrl = websiteUrl;
     }
 
+
+
+    public String getWebsiteUrl() {
+        return websiteUrl;
+    }
 
     public String getName() {
         return name;
