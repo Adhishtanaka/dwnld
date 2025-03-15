@@ -40,6 +40,8 @@ public class MainController {
     @FXML private Button btnAddDownload;
     @FXML private Button btnDelete;
     @FXML private Button btnSettings;
+    @FXML private Button btnResume;
+    @FXML private Button btnPause;
     @FXML private TableView<FileModel> tableView;
     @FXML private TableColumn<FileModel, String> columnName;
     @FXML private TableColumn<FileModel, String> columnSize;
@@ -49,7 +51,7 @@ public class MainController {
 
     DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm a");
 
-    private final ObservableList<FileModel> downloads = FXCollections.observableArrayList();
+    private static final ObservableList<FileModel> downloads = FXCollections.observableArrayList();
     SettingModel sm;
 
     @FXML
@@ -80,11 +82,31 @@ public class MainController {
         btnAddDownload.setOnAction(event -> openAddDownloadDialog());
         btnDelete.setOnAction(event -> openDeleteDialog());
         btnSettings.setOnAction(event -> openSettings());
+        btnResume.setOnAction(event -> resumeAllDownloads());
+        btnPause.setOnAction(event -> pauseAllDownloads());
         loadDownloads();
         updateStatusBar();
         searchField.textProperty().addListener((observable, oldValue, newValue) -> {
             filterTable(newValue);
         });
+    }
+
+    private void pauseAllDownloads() {
+        DownloadService ds = new DownloadService(this);
+        for (FileModel file : downloads) {
+            if (file.getStatus() == FileStatus.inProgress) {
+                ds.pauseDownload(file);
+            }
+        }
+    }
+
+    private void resumeAllDownloads() {
+        DownloadService ds = new DownloadService(this);
+        for (FileModel file : downloads) {
+            if (file.getStatus() == FileStatus.paused) {
+                ds.resumeDownload(file);
+            }
+        }
     }
 
     private void openDeleteDialog() {
@@ -285,6 +307,10 @@ public class MainController {
         });
     }
 
+    public static ObservableList<FileModel> getDownloads() {
+        return downloads;
+    }
+
     public void refreshTable() {
         Platform.runLater(() -> {
             tableView.refresh();
@@ -292,5 +318,4 @@ public class MainController {
         });
         saveDownloads();
     }
-
 }

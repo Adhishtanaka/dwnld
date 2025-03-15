@@ -5,6 +5,8 @@ public enum FileStatus implements Serializable {
     pending,
     inProgress,
     paused,
+    hold,
     completed,
-    failed
+    failed,
+    cancelled
 }

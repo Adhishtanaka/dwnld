@@ -63,9 +63,9 @@
                 <TableView fx:id="tableView" VBox.vgrow="ALWAYS" styleClass="downloads-table">
                     <columns>
                         <TableColumn text="Name" fx:id="columnName" prefWidth="100"/>
-                        <TableColumn text="Size" fx:id="columnSize" prefWidth="80"/>
-                        <TableColumn text="Added" fx:id="columnDate" prefWidth="80"/>
-                        <TableColumn text="Status" fx:id="columnStatus" prefWidth="80"/>
+                        <TableColumn text="Size" fx:id="columnSize"/>
+                        <TableColumn text="Added" fx:id="columnDate"/>
+                        <TableColumn text="Status" fx:id="columnStatus"/>
                         <TableColumn text="Progress" fx:id="columnProgress" prefWidth="220"/>
                     </columns>
                     <placeholder>

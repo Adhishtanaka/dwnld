@@ -4,7 +4,9 @@ import at.dwnld.controllers.MainController;
 import at.dwnld.models.FileInfoModel;
 import at.dwnld.models.FileModel;
 import at.dwnld.models.FileStatus;
+import at.dwnld.models.SettingModel;
 import javafx.application.Platform;
+import javafx.collections.ObservableList;
 import okhttp3.*;
 import org.jetbrains.annotations.NotNull;
 import java.io.*;
@@ -12,13 +14,17 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import static at.dwnld.controllers.MainController.getDownloads;
 
 public class DownloadService {
 
     private final OkHttpClient client;
     private final MainController mainController;
+    private final ConcurrentHashMap<String, ExecutorService> downloadExecutors = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, List<Future<?>>> downloadTasks = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, ConcurrentHashMap<Integer, Long>> segmentProgress = new ConcurrentHashMap<>();
 
     public DownloadService(MainController mainController) {
         this.mainController = mainController;
@@ -118,7 +124,7 @@ public class DownloadService {
     public void download(String url, String filePath, Map<String, String> headers) throws IOException {
         FileInfoModel fileInfo = getFileInfo(url, headers);
         url = fileInfo.finalUrl();
-        String fileName = fileInfo.name() != null ? fileInfo.name(): "downloaded_file";
+        String fileName = fileInfo.name() != null ? fileInfo.name() : "downloaded_file";
         if (!filePath.endsWith(File.separator)) {
             filePath += File.separator;
         }
@@ -126,13 +132,39 @@ public class DownloadService {
         long fileSize = fileInfo.size();
 
         FileModel file = new FileModel(fileName, url, filePath, LocalDateTime.now(), fileSize, LocalDateTime.now(), FileStatus.pending, 0, 0, headers);
-
         mainController.addDownload(file);
 
-        if (fileSize > 0) {
+        if (checkMaxParallelDownloads()) {
+            file.setStatus(FileStatus.hold);
+            Platform.runLater(mainController::refreshTable);
+            return;
+        }
+
+        startDownload(file);
+    }
+
+    public void startDownload(FileModel file) {
+        if (file.getSize() > 0) {
             downloadSegmentedFile(file);
         } else {
-            downloadSegment(file, 0, 0, new AtomicLong(0));
+            file.setStatus(FileStatus.inProgress);
+            Platform.runLater(mainController::refreshTable);
+
+            ExecutorService singleExecutor = Executors.newSingleThreadExecutor();
+            downloadExecutors.put(file.getPath(), singleExecutor);
+
+            Future<?> task = singleExecutor.submit(() -> {
+                try {
+                    downloadSegment(file, 0, 0, new AtomicLong(0), 0);
+                } catch (IOException e) {
+                    file.setStatus(FileStatus.failed);
+                    Platform.runLater(mainController::refreshTable);
+                }
+            });
+
+            List<Future<?>> tasks = new ArrayList<>();
+            tasks.add(task);
+            downloadTasks.put(file.getPath(), tasks);
         }
     }
 
@@ -140,49 +172,64 @@ public class DownloadService {
         int threadCount = 4;
         long segmentSize = file.getSize() / threadCount;
         ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+        downloadExecutors.put(file.getPath(), executorService);
+
+        List<Future<?>> tasks = new ArrayList<>();
+        downloadTasks.put(file.getPath(), tasks);
+
+        ConcurrentHashMap<Integer, Long> fileSegments = new ConcurrentHashMap<>();
+        segmentProgress.put(file.getPath(), fileSegments);
 
         file.setStatus(FileStatus.inProgress);
         Platform.runLater(mainController::refreshTable);
 
-        CountDownLatch latch = new CountDownLatch(threadCount);
-        AtomicBoolean hasFailure = new AtomicBoolean(false);
-
-        AtomicLong totalDownloadedBytes = new AtomicLong(0);
-
+        AtomicLong totalDownloadedBytes = new AtomicLong(file.getDownloadedSize());
+        AtomicInteger completedSegments = new AtomicInteger(0);
         long startTime = System.nanoTime();
 
         for (int i = 0; i < threadCount; i++) {
+            final int segmentId = i;
             long start = i * segmentSize;
             long end = (i == threadCount - 1) ? file.getSize() - 1 : (start + segmentSize - 1);
 
-            executorService.submit(() -> {
-                try {
-                    downloadSegment(file, start, end, totalDownloadedBytes);
-                } catch (IOException e) {
-                    hasFailure.set(true);
-                    file.setStatus(FileStatus.failed);
-                    Platform.runLater(mainController::refreshTable);
-                } finally {
-                    latch.countDown();
+            long segmentStart = fileSegments.getOrDefault(segmentId, start);
 
-                    if (latch.getCount() == 0 && !hasFailure.get()) {
+            Future<?> task = executorService.submit(() -> {
+                try {
+                    downloadSegment(file, segmentStart, end, totalDownloadedBytes, segmentId);
+                    if (completedSegments.incrementAndGet() == threadCount) {
                         final double elapsedTime = (System.nanoTime() - startTime) / 1e9;
                         Platform.runLater(() -> {
                             if (elapsedTime > 0) {
                                 file.setSpeed(totalDownloadedBytes.get() / elapsedTime);
                             }
-                            file.setStatus(FileStatus.completed);
-                            file.setDownloadedSize((int) file.getSize());
+                            if(file.getStatus() == FileStatus.inProgress){
+                                file.setStatus(FileStatus.completed);
+                                file.setDownloadedSize((int) file.getSize());
+                            }
+
                             mainController.refreshTable();
+
+                            downloadExecutors.remove(file.getPath());
+                            downloadTasks.remove(file.getPath());
+                            segmentProgress.remove(file.getPath());
+
+                            checkDownloadsForHold();
                         });
+                    }
+                } catch (IOException e) {
+                    if (file.getStatus() != FileStatus.paused && file.getStatus() != FileStatus.hold) {
+                        file.setStatus(FileStatus.failed);
+                        Platform.runLater(mainController::refreshTable);
                     }
                 }
             });
+
+            tasks.add(task);
         }
-        executorService.shutdown();
     }
 
-    private void downloadSegment(FileModel file, long start, long end, AtomicLong totalDownloadedBytes) throws IOException {
+    private void downloadSegment(FileModel file, long start, long end, AtomicLong totalDownloadedBytes, int segmentId) throws IOException {
         Request.Builder requestBuilder = new Request.Builder().url(file.getUrl());
         if (file.getHeaders() != null) {
             file.getHeaders().forEach(requestBuilder::addHeader);
@@ -211,13 +258,26 @@ public class DownloadService {
                 long bytesReadInSegment = 0;
                 long lastUpdateTime = System.nanoTime();
                 long lastDownloadedBytes = totalDownloadedBytes.get();
+                long currentPosition = start;
 
                 while ((bytesRead = inputStream.read(buffer)) != -1) {
+                    if (file.getStatus() == FileStatus.paused || file.getStatus() == FileStatus.hold) {
+                        if (segmentProgress.containsKey(file.getPath())) {
+                            segmentProgress.get(file.getPath()).put(segmentId, currentPosition);
+                        }
+                        break;
+                    }
+
                     raf.write(buffer, 0, bytesRead);
                     bytesReadInSegment += bytesRead;
+                    currentPosition += bytesRead;
                     long newTotalDownloaded = totalDownloadedBytes.addAndGet(bytesRead);
 
                     if (bytesReadInSegment % (1024 * 1024) < 8192) {
+                        if (segmentProgress.containsKey(file.getPath())) {
+                            segmentProgress.get(file.getPath()).put(segmentId, currentPosition);
+                        }
+
                         long currentTime = System.nanoTime();
                         double timeDiff = (currentTime - lastUpdateTime) / 1e9;
 
@@ -241,22 +301,90 @@ public class DownloadService {
                         }
                     }
                 }
-            } catch (IOException e) {
-                Platform.runLater(() -> {
-                    file.setStatus(FileStatus.failed);
-                    mainController.refreshTable();
-                });
-                System.out.println(e);
-                throw e;
             }
-        } catch (IOException e) {
-            Platform.runLater(() -> {
-                file.setStatus(FileStatus.failed);
-                mainController.refreshTable();
-            });
-            System.out.println(e);
-            throw e;
         }
     }
 
+    public void pauseDownload(FileModel file) {
+        file.setStatus(FileStatus.paused);
+        Platform.runLater(mainController::refreshTable);
+        ExecutorService executor = downloadExecutors.get(file.getPath());
+        if (executor != null) {
+            executor.shutdownNow();
+            downloadExecutors.remove(file.getPath());
+        }
+
+        List<Future<?>> tasks = downloadTasks.get(file.getPath());
+        if (tasks != null) {
+            for (Future<?> task : tasks) {
+                task.cancel(true);
+            }
+            downloadTasks.remove(file.getPath());
+        }
+
+
+        checkDownloadsForHold();
+    }
+
+    public void resumeDownload(FileModel file) {
+        if (file.getStatus() == FileStatus.paused) {
+            if (checkMaxParallelDownloads()) {
+                file.setStatus(FileStatus.hold);
+            } else {
+                startDownload(file);
+            }
+            Platform.runLater(mainController::refreshTable);
+        }
+    }
+
+    public void cancelDownload(FileModel file) {
+        pauseDownload(file);
+        File downloadedFile = new File(file.getPath());
+        if (downloadedFile.exists()) {
+            boolean deleted = downloadedFile.delete();
+            if (!deleted) {
+                System.out.println("Failed to delete file: " + file.getPath());
+            }
+        }
+
+        downloadExecutors.remove(file.getPath());
+        downloadTasks.remove(file.getPath());
+        segmentProgress.remove(file.getPath());
+        file.setStatus(FileStatus.cancelled);
+        file.setDownloadedSize(0);
+        file.setSpeed(0);
+
+        Platform.runLater(() -> {
+            mainController.refreshTable();
+            checkDownloadsForHold();
+        });
+    }
+
+    public Boolean checkMaxParallelDownloads() {
+        ObservableList<FileModel> fmd = getDownloads();
+        int activeDownloads = 0;
+
+        for (FileModel file : fmd) {
+            if (file.getStatus() == FileStatus.inProgress) {
+                activeDownloads++;
+            }
+        }
+
+        return activeDownloads >= SettingModel.getInstance().getMax_parallel();
+    }
+
+    private void checkDownloadsForHold() {
+        if (!checkMaxParallelDownloads()) {
+            ObservableList<FileModel> downloads = getDownloads();
+
+            FileModel nextFile = downloads.stream()
+                    .filter(file -> file.getStatus() == FileStatus.hold)
+                    .min(Comparator.comparing(FileModel::getLastTried))
+                    .orElse(null);
+
+            if (nextFile != null) {
+                startDownload(nextFile);
+            }
+        }
+    }
 }
