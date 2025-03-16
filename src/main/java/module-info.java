@@ -1,5 +1,6 @@
 module at.dwnld {
     requires javafx.fxml;
+    requires javafx.controls;
     requires okhttp3;
     requires org.apache.commons.io;
     requires annotations;

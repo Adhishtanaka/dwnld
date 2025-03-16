@@ -46,6 +46,20 @@ dependencies {
 
 }
 
+jar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    manifest {
+        attributes(
+                'Main-Class': 'at.dwnld.MainActivity'
+        )
+    }
+}
+
+
+
 test {
     useJUnitPlatform()
 }
@@ -61,7 +75,7 @@ jlink {
         installerName = 'dwnld-installer'
         appVersion = '0.1.0'
         vendor = 'adhishtanaka'
-        icon = 'src/main/resources/at/dwnld/icon.png'
+        icon = 'src/main/resources/at/dwnld/icon.ico'
     }
 }
 
@@ -69,3 +83,9 @@ jlinkZip {
     group = 'distribution'
 }
 
+
+//setup building command in my desktop
+//jpackage --input build/libs --main-jar dwnld-0.1.0.jar --main-class at.dwnld.Main
+//Activity --name dwnld --app-version 0.1.0 --vendor "Adhishtanaka" --icon src/main/r
+//esources/at/dwnld/icon.ico --dest output --verbose --win-menu --win-menu-group "Dwn
+//ld" --win-shortcut --java-options "--module-path \"C:\\openfx\\javafx-sdk-23.0.2\\lib\" --add-modules=javafx.controls,javafx.fxml,javafx.graphics,javafx.base"
