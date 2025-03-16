@@ -7,7 +7,7 @@ plugins {
 }
 
 group 'at'
-version '1.0-SNAPSHOT'
+version '0.1.0'
 
 repositories {
     mavenCentral()
@@ -26,7 +26,7 @@ tasks.withType(JavaCompile) {
 
 application {
     mainModule = 'at.dwnld'
-    mainClass = 'at.dwnld.HelloApplication'
+    mainClass = 'at.dwnld.MainActivity'
 }
 
 javafx {
@@ -54,7 +54,14 @@ jlink {
     imageZip = project.file("${buildDir}/distributions/app-${javafx.platform.classifier}.zip")
     options = ['--strip-debug', '--compress', '2', '--no-header-files', '--no-man-pages']
     launcher {
-        name = 'app'
+        name = 'dwnld'
+    }
+    jpackage {
+        installerType = 'msi'
+        installerName = 'dwnld-installer'
+        appVersion = '0.1.0'
+        vendor = 'adhishtanaka'
+        icon = 'src/main/resources/at/dwnld/icon.png'
     }
 }
 
