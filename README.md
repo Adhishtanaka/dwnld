@@ -15,10 +15,13 @@
 
 ## Planned Features
 
-- Support for downloading from streaming sites
-- Deeplink integration  
+- Support downloading from streaming sites
+- Deep link integration
 - Scheduler for automated downloads
-- Improve Performance
+- Performance improvements
+- Auto-start functionality
+- Port the project to Java 24
+- Build the project for execution on macOS, Windows, and Linux
 
 ## Contributing
 If you find a bug or have suggestions for improvement, feel free to open an issue or submit a pull request on GitHub.
