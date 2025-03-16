@@ -43,3 +43,5 @@ bin/
 .DS_Store
 /downloads.dat
 /settings.dat
+/output/dwnld-0.1.0.exe
+/lib/dwnld-1.0-SNAPSHOT.jar
